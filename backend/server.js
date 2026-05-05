@@ -4,6 +4,7 @@ const pinoHttp = require('pino-http');
 const connectDB = require('./src/config/db');
 const logger = require('./src/utils/logger');
 const errorHandler = require('./src/middleware/errorHandler');
+const authRoutes = require('./src/routes/authRoutes');
 
 // Initialize database connection
 connectDB();
@@ -21,6 +22,7 @@ app.use(pinoHttp({ logger }));
 app.get('/', (req, res) => {
   res.status(200).json({ message: 'Notes App Backend API is running...' });
 });
+app.use('/api/auth', authRoutes);
 
 // Test route to verify the global exception handler works
 app.get('/error-test', (req, res) => {
@@ -32,6 +34,10 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  logger.info(`Server is running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    logger.info(`Server is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
