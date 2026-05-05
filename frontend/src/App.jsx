@@ -1,13 +1,20 @@
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <h1 className="text-4xl font-bold text-blue-600">
-          Notes App Frontend Initialized! (Tailwind v4)
-        </h1>
-      </div>
+      {/* The Toaster component renders the beautiful notifications globally */}
+      <Toaster position="top-right" />
+      
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        {/* Temporarily redirect the root to login until we build the dashboard */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }
