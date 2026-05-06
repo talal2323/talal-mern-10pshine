@@ -10,11 +10,6 @@ describe('Auth API Endpoints', () => {
     await User.deleteMany({});
   });
 
-  after(async () => {
-    // Close database connection after tests finish
-    await mongoose.connection.close();
-  });
-
   const testUser = {
     name: 'Test User',
     email: 'test@example.com',

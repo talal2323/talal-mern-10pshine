@@ -5,6 +5,7 @@ const connectDB = require('./src/config/db');
 const logger = require('./src/utils/logger');
 const errorHandler = require('./src/middleware/errorHandler');
 const authRoutes = require('./src/routes/authRoutes');
+const noteRoutes = require('./src/routes/noteRoutes');
 
 // Initialize database connection
 connectDB();
@@ -23,6 +24,7 @@ app.get('/', (req, res) => {
   res.status(200).json({ message: 'Notes App Backend API is running...' });
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/notes', noteRoutes);
 
 // Test route to verify the global exception handler works
 app.get('/error-test', (req, res) => {
