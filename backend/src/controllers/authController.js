@@ -65,4 +65,26 @@ const logoutUser = (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
-module.exports = { registerUser, loginUser, logoutUser };
+// @desc    Get current logged in user data
+// @route   GET /api/auth/me
+const getMe = async (req, res, next) => {
+  try {
+    // req.user is securely attached by the authMiddleware before this function even runs!
+    const user = {
+      id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+      // Format the date nicely for the frontend Profile UI
+      joinDate: new Date(req.user.createdAt).toLocaleDateString('en-US', { 
+        month: 'short', 
+        year: 'numeric' 
+      })
+    };
+    
+    res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { registerUser, loginUser, logoutUser, getMe };
