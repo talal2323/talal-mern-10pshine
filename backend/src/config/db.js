@@ -1,13 +1,21 @@
 const mongoose = require('mongoose');
-const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
-    logger.info(`MongoDB Connected: ${conn.connection.host}`);
+    // 1. Choose the URL based on the environment
+    const dbURI = process.env.NODE_ENV === 'test' 
+      ? process.env.MONGO_URI_TEST 
+      : process.env.MONGO_URI;
+
+    // 2. Connect to MongoDB
+    const conn = await mongoose.connect(dbURI);
+    
+    // 3. Log which database we are actually using
+    const dbType = process.env.NODE_ENV === 'test' ? 'TEST' : 'DEV';
+    console.log(`MongoDB Connected [${dbType}]: ${conn.connection.host}`);
   } catch (error) {
-    logger.error(`MongoDB Connection Error: ${error.message}`);
-    process.exit(1); // Exit process with failure
+    console.log(error);
+    process.exit(1);
   }
 };
 
