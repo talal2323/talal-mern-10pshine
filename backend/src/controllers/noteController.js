@@ -4,7 +4,23 @@ const Note = require('../models/Note');
 // @route   GET /api/notes
 const getNotes = async (req, res, next) => {
   try {
-    const notes = await Note.find({ user: req.user.id }).sort({ updatedAt: -1 });
+    const { search, category } = req.query;
+    
+    let dbQuery = { user: req.user._id };
+
+    if (search) {
+      dbQuery.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (category && category !== 'All') {
+      dbQuery.category = category;
+    }
+
+    const notes = await Note.find(dbQuery).sort({ createdAt: -1 });
+    
     res.status(200).json(notes);
   } catch (error) {
     next(error);
