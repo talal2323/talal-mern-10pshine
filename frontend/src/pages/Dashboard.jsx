@@ -1,125 +1,178 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Loader2, Calendar } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { PlusCircle, Edit3, Trash2, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
 export default function Dashboard() {
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // New Search & Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [category, setCategory] = useState('All');
+  
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchNotes = async () => {
-      const token = localStorage.getItem('token');
+  // Wrapped in useCallback so we can trigger it whenever search/category changes
+  const fetchNotes = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      // Build the dynamic URL with query parameters
+      const url = new URL('http://localhost:5000/api/notes'); // Adjust port if needed, or use relative '/api/notes' if proxy is set up
       
-      // Protect the route: If no token, kick them to login
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+      // We use a relative path since Vite proxies /api to the backend
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (category !== 'All') params.append('category', category);
 
-      try {
-        const response = await fetch('/api/notes', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      const response = await fetch(`/api/notes?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/login');
-          throw new Error('Session expired. Please log in again.');
-        }
-
+      if (response.ok) {
         const data = await response.json();
         setNotes(data);
-      } catch (error) {
-        toast.error(error.message || 'Failed to load notes');
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error('Failed to fetch notes');
       }
-    };
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, category, navigate]);
 
-    fetchNotes();
-  }, [navigate]);
+  // Trigger fetch every time searchTerm or category changes
+  useEffect(() => {
+    // Add a small delay (debounce) so it doesn't spam the backend on every keystroke
+    const delayDebounceFn = setTimeout(() => {
+      fetchNotes();
+    }, 300);
 
-  // Format the date nicely (e.g., "Oct 12, 2025")
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return () => clearTimeout(delayDebounceFn);
+  }, [fetchNotes]);
+
+  // New Delete Function
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this note?')) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`/api/notes/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        toast.success('Note deleted successfully');
+        // Instantly remove the note from the UI without reloading the page
+        setNotes((prevNotes) => prevNotes.filter((note) => note._id !== id));
+      } else {
+        throw new Error('Failed to delete note');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Your Notes</h1>
-            <p className="text-gray-500 mt-1">Manage and organize your thoughts</p>
-          </div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <h1 className="text-3xl font-bold text-gray-900">Your Dashboard</h1>
           
-          <button
-            onClick={() => navigate('/editor/new')} // We will build this route in PR 8!
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+          <Link
+            to="/editor/new"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
           >
-            <Plus className="h-5 w-5" />
+            <PlusCircle className="h-5 w-5" />
             Create Note
-          </button>
+          </Link>
         </div>
 
-        {/* State 1: Loading */}
+        {/* Search and Filter Bar */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-8 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by title or content..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            />
+          </div>
+          
+          <div className="relative w-full sm:w-48">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Filter className="h-5 w-5 text-gray-400" />
+            </div>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="block w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer transition-colors"
+            >
+              <option value="All">All Categories</option>
+              <option value="Work">Work</option>
+              <option value="Personal">Personal</option>
+              <option value="Study">Study</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Notes Grid */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
-            <p className="text-gray-500 font-medium">Loading your notes...</p>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : notes.length === 0 ? (
-          
-          /* State 2: Premium Empty State */
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-12 text-center max-w-2xl mx-auto mt-10">
-            <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileText className="h-10 w-10 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No notes yet</h3>
-            <p className="text-gray-500 mb-8 max-w-md mx-auto">
-              You haven't created any notes. Click the button below to start capturing your brilliant ideas.
-            </p>
-            <button
-              onClick={() => navigate('/editor/new')}
-              className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold py-3 px-6 rounded-xl transition-colors"
-            >
-              <Plus className="h-5 w-5" />
-              Write your first note
-            </button>
+          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
+            <h3 className="text-lg font-medium text-gray-900 mb-1">No notes found</h3>
+            <p className="text-gray-500">Try adjusting your search or create a new note.</p>
           </div>
         ) : (
-          
-          /* State 3: The Beautiful CSS Grid Layout */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {notes.map((note) => (
-              <div
-                key={note._id}
-                onClick={() => navigate(`/editor/${note._id}`)}
-                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:shadow-xl hover:-translate-y-1 hover:border-blue-200 transition-all duration-300 group flex flex-col h-64"
-              >
-                <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                  {note.title}
-                </h3>
-                
-                {/* Note preview (strip HTML tags since we will use a Rich Text Editor later) */}
-                <p className="text-gray-600 flex-grow line-clamp-4 leading-relaxed">
+              <div key={note._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow flex flex-col h-full">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {note.category || 'Personal'}
+                  </span>
+                  {/* Action Buttons: Edit & Delete */}
+                  <div className="flex items-center gap-2">
+                    <Link to={`/editor/${note._id}`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Edit3 className="h-4 w-4" />
+                    </Link>
+                    <button 
+                      onClick={() => handleDelete(note._id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete Note"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">{note.title}</h3>
+                {/* Strip HTML tags for the preview */}
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow">
                   {note.content.replace(/<[^>]*>?/gm, '')}
                 </p>
-                
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-50 text-sm text-gray-400 font-medium">
-                  <Calendar className="h-4 w-4" />
-                  {formatDate(note.updatedAt)}
+                <div className="text-xs text-gray-400 mt-auto pt-4 border-t border-gray-100">
+                  {new Date(note.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
                 </div>
               </div>
             ))}

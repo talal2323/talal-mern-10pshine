@@ -13,7 +13,11 @@ const noteSchema = new mongoose.Schema({
   content: {
     type: String,
     required: [true, 'Please add a text value for the content']
-  }
+  },
+  category: {
+    type: String,
+    default: 'Personal',
+  },
 }, {
   timestamps: true
 });

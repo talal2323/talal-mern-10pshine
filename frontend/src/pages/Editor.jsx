@@ -9,9 +9,10 @@ import Navbar from '../components/Navbar';
 export default function Editor() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [category, setCategory] = useState('Personal');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
-  
+
   const navigate = useNavigate();
   const { id } = useParams(); // Gets the ID from the URL
   const isNewNote = id === 'new';
@@ -21,7 +22,7 @@ export default function Editor() {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
       ['bold', 'italic', 'underline', 'strike'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
       ['link', 'clean']
     ],
   };
@@ -36,16 +37,17 @@ export default function Editor() {
           const response = await fetch('/api/notes', {
             headers: { Authorization: `Bearer ${token}` },
           });
-          
+
           if (!response.ok) throw new Error('Failed to fetch note');
-          
+
           const notes = await response.json();
           // Find the specific note we are editing
           const existingNote = notes.find(n => n._id === id);
-          
+
           if (existingNote) {
             setTitle(existingNote.title);
             setContent(existingNote.content);
+            setCategory(existingNote.category || 'Personal');
           } else {
             toast.error('Note not found');
             navigate('/');
@@ -69,7 +71,7 @@ export default function Editor() {
 
     setIsLoading(true);
     const token = localStorage.getItem('token');
-    
+
     // Determine if we are doing a POST (Create) or PUT (Update)
     const url = isNewNote ? '/api/notes' : `/api/notes/${id}`;
     const method = isNewNote ? 'POST' : 'PUT';
@@ -81,7 +83,7 @@ export default function Editor() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, category }),
       });
 
       if (!response.ok) {
@@ -109,7 +111,7 @@ export default function Editor() {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      
+
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -141,27 +143,34 @@ export default function Editor() {
         </div>
 
         {/* Editor Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
-            <input
-              type="text"
-              placeholder="Note Title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-3xl font-extrabold text-gray-900 placeholder-gray-300 border-none focus:outline-none focus:ring-0 bg-transparent"
-            />
-          </div>
-          
-          {/* We use a wrapper class to enforce a minimum height on the Quill editor */}
-          <div className="[&_.ql-editor]:min-h-[400px] [&_.ql-editor]:text-gray-700 [&_.ql-editor]:text-lg [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:border-none [&_.ql-container]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-200">
-            <ReactQuill 
-              theme="snow" 
-              value={content} 
-              onChange={setContent} 
-              modules={modules}
-              placeholder="Start writing your brilliant ideas here..."
-            />
-          </div>
+        <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <input
+            type="text"
+            placeholder="Note Title..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="flex-1 w-full text-3xl font-extrabold text-gray-900 placeholder-gray-300 border-none focus:outline-none focus:ring-0 bg-transparent"
+          />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full sm:w-48 bg-white border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 font-medium shadow-sm"
+          >
+            <option value="Work">Work</option>
+            <option value="Personal">Personal</option>
+            <option value="Study">Study</option>
+          </select>
+        </div>
+
+        {/* We use a wrapper class to enforce a minimum height on the Quill editor */}
+        <div className="[&_.ql-editor]:min-h-[400px] [&_.ql-editor]:text-gray-700 [&_.ql-editor]:text-lg [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:border-none [&_.ql-container]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-200">
+          <ReactQuill
+            theme="snow"
+            value={content}
+            onChange={setContent}
+            modules={modules}
+            placeholder="Start writing your brilliant ideas here..."
+          />
         </div>
       </main>
     </div>
