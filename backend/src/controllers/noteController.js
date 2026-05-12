@@ -5,7 +5,7 @@ const Note = require('../models/Note');
 const getNotes = async (req, res, next) => {
   try {
     const { search, category } = req.query;
-    
+
     let dbQuery = { user: req.user._id };
 
     if (search) {
@@ -20,7 +20,7 @@ const getNotes = async (req, res, next) => {
     }
 
     const notes = await Note.find(dbQuery).sort({ createdAt: -1 });
-    
+
     res.status(200).json(notes);
   } catch (error) {
     next(error);
@@ -31,6 +31,7 @@ const getNotes = async (req, res, next) => {
 // @route   POST /api/notes
 const createNote = async (req, res, next) => {
   try {
+    const { title, content, category } = req.body;
     if (!req.body.title || !req.body.content) {
       res.status(400);
       throw new Error('Please add both title and content');
@@ -39,6 +40,7 @@ const createNote = async (req, res, next) => {
     const note = await Note.create({
       title: req.body.title,
       content: req.body.content,
+      category: category || 'Personal',
       user: req.user.id
     });
 
