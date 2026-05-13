@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, Edit3, Trash2, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
+import { io } from 'socket.io-client';
 
 export default function Dashboard() {
   const [notes, setNotes] = useState([]);
@@ -23,10 +24,6 @@ export default function Dashboard() {
     }
 
     try {
-      // Build the dynamic URL with query parameters
-      const url = new URL('http://localhost:5000/api/notes'); // Adjust port if needed, or use relative '/api/notes' if proxy is set up
-      
-      // We use a relative path since Vite proxies /api to the backend
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (category !== 'All') params.append('category', category);
@@ -50,7 +47,6 @@ export default function Dashboard() {
 
   // Trigger fetch every time searchTerm or category changes
   useEffect(() => {
-    // Add a small delay (debounce) so it doesn't spam the backend on every keystroke
     const delayDebounceFn = setTimeout(() => {
       fetchNotes();
     }, 300);
@@ -58,7 +54,40 @@ export default function Dashboard() {
     return () => clearTimeout(delayDebounceFn);
   }, [fetchNotes]);
 
-  // New Delete Function
+  // 👇 THE NEW REAL-TIME SOCKET LISTENER 👇
+  useEffect(() => {
+    // 1. Dial the backend server
+    const socket = io('http://localhost:5000'); 
+
+    // 2. Listen for the specific update event
+    socket.on('task_status_changed', (updatedTask) => {
+      
+      // 3. Instantly swap the old note with the newly updated note in the UI
+      setNotes((prevNotes) => 
+        prevNotes.map((note) => 
+          note._id === updatedTask._id ? updatedTask : note
+        )
+      );
+
+      // 4. Pop a tiny notification so the user knows a live update happened
+      toast.success(`Task updated live: ${updatedTask.title}`, {
+        icon: '⚡',
+        style: {
+          borderRadius: '10px',
+          background: '#333',
+          color: '#fff',
+        },
+      });
+    });
+
+    // 5. Hang up the phone when the user leaves the Dashboard
+    return () => {
+      socket.disconnect();
+    };
+  }, []); 
+  // 👆 END OF SOCKET LOGIC 👆
+
+  // Delete Function
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this note?')) return;
 
@@ -71,7 +100,6 @@ export default function Dashboard() {
 
       if (response.ok) {
         toast.success('Note deleted successfully');
-        // Instantly remove the note from the UI without reloading the page
         setNotes((prevNotes) => prevNotes.filter((note) => note._id !== id));
       } else {
         throw new Error('Failed to delete note');
