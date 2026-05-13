@@ -68,6 +68,9 @@ const updateNote = async (req, res, next) => {
     }
 
     const updatedNote = await Note.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const io = req.app.get('socketio');
+    io.emit('task_status_changed', updatedNote);
+    
     res.status(200).json(updatedNote);
   } catch (error) {
     next(error);
