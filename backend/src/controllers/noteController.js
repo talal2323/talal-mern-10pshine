@@ -70,7 +70,7 @@ const updateNote = async (req, res, next) => {
     const updatedNote = await Note.findByIdAndUpdate(req.params.id, req.body, { new: true });
     const io = req.app.get('socketio');
     io.emit('task_status_changed', updatedNote);
-    
+
     res.status(200).json(updatedNote);
   } catch (error) {
     next(error);
@@ -101,4 +101,58 @@ const deleteNote = async (req, res, next) => {
   }
 };
 
-module.exports = { getNotes, createNote, updateNote, deleteNote };
+// @desc    Export all user notes as a JSON file
+// @route   GET /api/notes/export
+const exportNotes = async (req, res, next) => {
+  try {
+    // Fetch all notes for this user, but EXCLUDE the MongoDB _id and __v fields.
+    const notes = await Note.find({ user: req.user.id }).select('title content category -_id');
+
+    // Set the headers to tell the browser to download this as a file
+    res.setHeader('Content-Disposition', 'attachment; filename=my_notes_export.json');
+    res.setHeader('Content-Type', 'application/json');
+
+    res.status(200).send(JSON.stringify(notes, null, 2));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Import an array of notes
+// @route   POST /api/notes/import
+const importNotes = async (req, res, next) => {
+  try {
+    const { notes } = req.body;
+
+    if (!notes || !Array.isArray(notes) || notes.length === 0) {
+      res.status(400);
+      throw new Error('Please provide a valid array of notes to import');
+    }
+
+    // Map through the uploaded notes and attach the current logged-in user's ID
+    const notesToImport = notes.map((note) => ({
+      title: note.title || 'Untitled Note',
+      content: note.content || '',
+      category: note.category || 'General',
+      user: req.user.id,
+    }));
+
+    // Use MongoDB's bulk insert for massive performance gains
+    const importedNotes = await Note.insertMany(notesToImport);
+
+    // Optional: Emit a socket event so the UI refreshes instantly if they have multiple tabs open
+    const io = req.app.get('socketio');
+    if (io) {
+      io.emit('notes_bulk_imported');
+    }
+
+    res.status(201).json({
+      message: 'Notes imported successfully',
+      count: importedNotes.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getNotes, createNote, updateNote, deleteNote, exportNotes, importNotes };
