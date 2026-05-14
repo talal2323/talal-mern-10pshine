@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusCircle, Edit3, Trash2, Search, Filter } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Search, Filter, Download, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import { io } from 'socket.io-client';
@@ -8,11 +8,11 @@ import { io } from 'socket.io-client';
 export default function Dashboard() {
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // New Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('All');
-  
+
   const navigate = useNavigate();
 
   // Wrapped in useCallback so we can trigger it whenever search/category changes
@@ -57,14 +57,14 @@ export default function Dashboard() {
   // 👇 THE NEW REAL-TIME SOCKET LISTENER 👇
   useEffect(() => {
     // 1. Dial the backend server
-    const socket = io('http://localhost:5000'); 
+    const socket = io('http://localhost:5000');
 
     // 2. Listen for the specific update event
     socket.on('task_status_changed', (updatedTask) => {
-      
+
       // 3. Instantly swap the old note with the newly updated note in the UI
-      setNotes((prevNotes) => 
-        prevNotes.map((note) => 
+      setNotes((prevNotes) =>
+        prevNotes.map((note) =>
           note._id === updatedTask._id ? updatedTask : note
         )
       );
@@ -84,7 +84,7 @@ export default function Dashboard() {
     return () => {
       socket.disconnect();
     };
-  }, []); 
+  }, []);
   // 👆 END OF SOCKET LOGIC 👆
 
   // Delete Function
@@ -108,22 +108,116 @@ export default function Dashboard() {
       toast.error(error.message);
     }
   };
+  const fileInputRef = useRef(null);
+
+  const handleExport = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/notes/export', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Failed to export notes');
+
+      // Convert the response to a downloadable file (Blob)
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link and click it to trigger the download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'my_notes_export.json';
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      toast.success('Notes exported successfully!');
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const notes = JSON.parse(e.target.result);
+        const token = localStorage.getItem('token');
+
+        const response = await fetch('/api/notes/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ notes })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to import notes');
+        }
+
+        toast.success('Notes imported successfully!');
+        fetchNotes(); // Refresh the dashboard to show the new notes
+      } catch (error) {
+        toast.error(error.message || 'Invalid JSON file');
+      } finally {
+        // Clear the input so the user can import the same file again if needed
+        event.target.value = null;
+      }
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <h1 className="text-3xl font-bold text-gray-900">Your Dashboard</h1>
-          
-          <Link
-            to="/editor/new"
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
-          >
-            <PlusCircle className="h-5 w-5" />
-            Create Note
-          </Link>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+            {/* Hidden file input for importing */}
+            <input
+              type="file"
+              accept=".json"
+              ref={fileInputRef}
+              onChange={handleImport}
+              className="hidden"
+            />
+
+            <button
+              onClick={() => fileInputRef.current.click()}
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm whitespace-nowrap"
+            >
+              <Upload className="h-5 w-5" />
+              Import
+            </button>
+
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm whitespace-nowrap"
+            >
+              <Download className="h-5 w-5" />
+              Export
+            </button>
+
+            <Link
+              to="/editor/new"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-sm whitespace-nowrap"
+            >
+              <PlusCircle className="h-5 w-5" />
+              Create Note
+            </Link>
+          </div>
         </div>
 
         {/* Search and Filter Bar */}
@@ -140,7 +234,7 @@ export default function Dashboard() {
               className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             />
           </div>
-          
+
           <div className="relative w-full sm:w-48">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Filter className="h-5 w-5 text-gray-400" />
@@ -181,7 +275,7 @@ export default function Dashboard() {
                     <Link to={`/editor/${note._id}`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                       <Edit3 className="h-4 w-4" />
                     </Link>
-                    <button 
+                    <button
                       onClick={() => handleDelete(note._id)}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete Note"
