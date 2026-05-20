@@ -15,7 +15,7 @@ const registerUser = async (req, res, next) => {
       throw new Error('Please provide all fields');
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: String(email) });
     if (userExists) {
       res.status(400);
       throw new Error('User already exists');
@@ -42,7 +42,7 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const userExists = await User.findOne({ email: String(email) });
 
     if (user && (await user.matchPassword(password))) {
       res.json({
