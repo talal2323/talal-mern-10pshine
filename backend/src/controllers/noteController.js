@@ -16,7 +16,7 @@ const getNotes = async (req, res, next) => {
     }
 
     if (category && category !== 'All') {
-      dbQuery.category = category;
+      dbQuery.category = String(category);
     }
 
     const notes = await Note.find(dbQuery).sort({ createdAt: -1 });
