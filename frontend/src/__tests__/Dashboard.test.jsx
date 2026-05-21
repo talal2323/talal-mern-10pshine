@@ -23,6 +23,7 @@ describe('Frontend Dashboard UI', () => {
   it('renders the empty state when there are no notes', async () => {
     // Mock a successful API call returning an empty array
     global.fetch.mockResolvedValue({
+      ok: true,
       status: 200,
       json: jest.fn().mockResolvedValue([]),
     });
@@ -35,19 +36,20 @@ describe('Frontend Dashboard UI', () => {
 
     // Wait for the loader to disappear and empty state to appear
     await waitFor(() => {
-      expect(screen.getByText('No notes yet')).toBeInTheDocument();
-      expect(screen.getByText('Write your first note')).toBeInTheDocument();
+      expect(screen.getByText('No notes found')).toBeInTheDocument();
+      expect(screen.getByText('Try adjusting your search or create a new note.')).toBeInTheDocument();
     });
   });
 
   it('renders a grid of notes when data is returned', async () => {
     // Mock a successful API call returning fake notes
     const mockNotes = [
-      { _id: '1', title: 'My First Note', content: 'Hello World', updatedAt: '2025-10-12T00:00:00.000Z' },
-      { _id: '2', title: 'Project Ideas', content: 'MERN Stack App', updatedAt: '2025-10-13T00:00:00.000Z' },
+      { _id: '1', title: 'My First Note', content: 'Hello World', createdAt: '2025-10-12T00:00:00.000Z' },
+      { _id: '2', title: 'Project Ideas', content: 'MERN Stack App', createdAt: '2025-10-13T00:00:00.000Z' },
     ];
 
     global.fetch.mockResolvedValue({
+      ok: true,
       status: 200,
       json: jest.fn().mockResolvedValue(mockNotes),
     });
