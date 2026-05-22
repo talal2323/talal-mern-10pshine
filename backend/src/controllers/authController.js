@@ -9,7 +9,7 @@ const generateToken = (id) => {
 const registerUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
-    
+
     if (!name || !email || !password) {
       res.status(400);
       throw new Error('Please provide all fields');
@@ -44,12 +44,12 @@ const loginUser = async (req, res, next) => {
     const { email, password } = req.body;
     const userExists = await User.findOne({ email: String(email) });
 
-    if (user && (await user.matchPassword(password))) {
+    if (userExists && (await userExists.matchPassword(password))) {
       res.json({
-        _id: user.id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
+        _id: userExists.id,
+        name: userExists.name,
+        email: userExists.email,
+        token: generateToken(userExists._id),
       });
     } else {
       res.status(401);
@@ -75,12 +75,12 @@ const getMe = async (req, res, next) => {
       name: req.user.name,
       email: req.user.email,
       // Format the date nicely for the frontend Profile UI
-      joinDate: new Date(req.user.createdAt).toLocaleDateString('en-US', { 
-        month: 'short', 
-        year: 'numeric' 
+      joinDate: new Date(req.user.createdAt).toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric'
       })
     };
-    
+
     res.status(200).json(user);
   } catch (error) {
     next(error);
